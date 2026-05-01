@@ -1,8 +1,11 @@
+"""Download the official Mexico GeoJSON and flatten it into a BigQuery-friendly CSV."""
+
 import urllib.request
 import json
 import csv
 
 def descargar_mapa_wgs84():
+    """Generate a CSV with one row per state and the geometry serialized as JSON."""
     print("Descargando mapa oficial WGS84 (angelnmara/geojson)...")
     url = "https://raw.githubusercontent.com/angelnmara/geojson/master/mexicoHigh.json"
     
@@ -18,20 +21,23 @@ def descargar_mapa_wgs84():
         writer.writerow(['state_name', 'geometry_string']) 
         
         for estado in estados:
-            # Extraemos el nombre
+            # Keep the state name separate from the raw geometry text so BigQuery can
+            # ingest the CSV first and convert the geometry in a later SQL step.
             nombre = estado['properties'].get('name', 'Desconocido')
             geometria = estado['geometry']
             
-            # Sanity Check visual para ti
+            # Print one sample coordinate for CDMX as a quick manual validation that
+            # the downloaded file is still using longitude/latitude in WGS84 order.
             if nombre in ['Ciudad de México', 'Distrito Federal']:
                 try:
                     tipo = geometria['type']
-                    # Extraemos un punto profundo de prueba
+                    # The nesting depth differs between Polygon and MultiPolygon.
                     coord = geometria['coordinates'][0][0][0] if tipo == 'Polygon' else geometria['coordinates'][0][0][0][0]
                     print(f"✅ Sanity Check en {nombre}: {coord} (¡Debe estar entre -180 y 90!)")
                 except:
                     pass
                     
+            # Serialize the geometry block as plain text so it fits cleanly in CSV.
             writer.writerow([nombre, json.dumps(geometria)])
             
     print("¡Listo! Archivo a prueba de balas generado: mx-estados-final.csv")

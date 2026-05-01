@@ -1,8 +1,11 @@
+"""Validate GeoJSON coordinates before exporting them to CSV for BigQuery."""
+
 import urllib.request
 import json
 import csv
 
 def validar_y_crear():
+    """Check coordinate ranges and only write the CSV when the map looks valid."""
     print("1. Descargando mapa oficial WGS84 (angelnmara/geojson)...")
     url = "https://raw.githubusercontent.com/angelnmara/geojson/master/mexicoHigh.json"
     
@@ -21,7 +24,7 @@ def validar_y_crear():
         geometria = estado['geometry']
         coordenadas = geometria['coordinates']
         
-        # Aplanar recursivamente para encontrar lats y lons
+        # Recorremos cualquier nivel de anidación hasta llegar a pares [lon, lat].
         def extraer_coords(lista):
             for item in lista:
                 if isinstance(item, list) and len(item) == 2 and isinstance(item[0], (int, float)):
@@ -50,11 +53,11 @@ def validar_y_crear():
         writer.writerow(['state_name', 'geometry_string']) 
         for estado in estados:
             nombre = estado['properties'].get('name', 'Desconocido')
+            # Cada fila conserva el GeoJSON completo como texto para convertirlo
+            # después a GEOGRAPHY dentro de BigQuery.
+            writer.writerow([nombre, json.dumps(estado['geometry'])])
         
-        writer.writerow([nombre, json.dumps(estado['geometry'])])
-        
-print("¡Listo! Archivo generado: mx-estados-validado.csv")
+    print("¡Listo! Archivo generado: mx-estados-validado.csv")
 
-# === ESTO DEBE ESTAR PEGADO AL MARGEN IZQUIERDO ===
 if __name__ == "__main__":
     validar_y_crear()
