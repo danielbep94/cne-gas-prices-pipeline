@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 .envdata/
 data/generated/
+gcp-sa-key.json
