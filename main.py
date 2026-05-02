@@ -126,3 +126,4 @@ def ingest_cne_data(request):
     fetch_upload_and_parse(PLACES_URL, places_path, bucket, 'places', business_date)
     
     return "Ingestion and BigQuery Load complete.", 200
+# Trigger CI/CD pipeline
