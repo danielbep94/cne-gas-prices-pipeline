@@ -12,6 +12,9 @@
 # below:
 .git
 .gitignore
+data/
+scripts/
+sql/
 
 node_modules
 #!include:.gitignore
