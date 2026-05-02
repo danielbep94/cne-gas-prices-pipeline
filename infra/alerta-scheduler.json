@@ -1,0 +1,20 @@
+{
+    "displayName": "Alerta: Falla en Cloud Scheduler CNE",
+    "combiner": "OR",
+    "conditions": [
+      {
+        "displayName": "Scheduler Job Failure",
+        "conditionMatchedLog": {
+          "filter": "resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=\"cne-daily-trigger\" AND severity>=\"ERROR\""
+        }
+      }
+    ],
+    "alertStrategy": {
+      "notificationRateLimit": {
+        "period": "300s"
+      }
+    },
+    "notificationChannels": [
+      "projects/cne-pipeline-mx-2026/notificationChannels/11213192143418241936"
+    ]
+  }

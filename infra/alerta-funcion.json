@@ -1,0 +1,20 @@
+{
+    "displayName": "Alerta: Falla en Cloud Function CNE",
+    "combiner": "OR",
+    "conditions": [
+      {
+        "displayName": "Log match condition",
+        "conditionMatchedLog": {
+          "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"ingest-cne-pipeline\" AND severity>=\"ERROR\""
+        }
+      }
+    ],
+    "alertStrategy": {
+      "notificationRateLimit": {
+        "period": "300s"
+      }
+    },
+    "notificationChannels": [
+      "projects/cne-pipeline-mx-2026/notificationChannels/11213192143418241936"
+    ]
+  }
