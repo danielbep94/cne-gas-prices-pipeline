@@ -7,6 +7,7 @@ on:
     paths:
       - 'main.py'
       - 'requirements.txt'
+      - '.github/workflows/deploy.yml'
 
 jobs:
   deploy:
@@ -20,11 +21,15 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      - name: Deploy to Cloud Functions
-        uses: google-github-actions/deploy-cloud-functions@v2
-        with:
-          name: ingest-cne-pipeline
-          runtime: python311
-          region: us-central1
-          entry_point: ingest_cne_data
-          env_vars: BUCKET_NAME=cne-historical-data-lake,PROJECT_ID=cne-pipeline-mx-2026
+      - name: Deploy to Cloud Functions Gen 2
+        run: |
+          gcloud functions deploy ingest-cne-pipeline \
+            --gen2 \
+            --runtime=python311 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=ingest_cne_data \
+            --trigger-http \
+            --set-env-vars=BUCKET_NAME=cne-historical-data-lake,PROJECT_ID=cne-pipeline-mx-2026 \
+            --memory=512MiB \
+            --no-allow-unauthenticated
