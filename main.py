@@ -35,40 +35,69 @@ def parse_and_load_bq(xml_content: bytes, data_type: str, business_date: str) ->
     logging.info(f"Parsing {data_type} and loading to BigQuery...")
     root = ET.fromstring(xml_content)
     records = []
+    
+    # Generate the exact processing timestamp for traceability
+    date_processing = datetime.now(pytz.utc).isoformat()
 
     if data_type == 'prices':
-        for place in root.findall('place'):
+        places_dict = {}
+        # The XML fragments prices into multiple <place> nodes with the same place_id.
+        # We pivot this using a dictionary to aggregate all fuels into a single row.
+        for place in root.findall('.//place'):
             place_id = place.get('place_id')
-            prices = {'regular': None, 'premium': None, 'diesel': None}
+            if not place_id:
+                continue
+                
+            place_id_int = int(place_id)
+            
+            # Initialize the base row if it's the first time we see this place_id
+            if place_id_int not in places_dict:
+                places_dict[place_id_int] = {
+                    'place_id': place_id_int,
+                    'regular_price': None,
+                    'premium_price': None,
+                    'diesel_price': None,
+                    'business_date': business_date,
+                    'date_processing': date_processing
+                }
+            
+            # Fill the specific fuel prices found in this fragment
             for gas_price in place.findall('gas_price'):
                 p_type = gas_price.get('type')
-                if p_type in prices:
-                    prices[p_type] = float(gas_price.text)
-            # Convert the nested XML fuel entries into one wide record per station/day.
-            records.append({
-                'place_id': place_id,
-                'regular_price': prices['regular'],
-                'premium_price': prices['premium'],
-                'diesel_price': prices['diesel'],
-                'business_date': business_date
-            })
+                if not gas_price.text:
+                    continue
+                    
+                price_val = float(gas_price.text)
+                if p_type == 'regular':
+                    places_dict[place_id_int]['regular_price'] = price_val
+                elif p_type == 'premium':
+                    places_dict[place_id_int]['premium_price'] = price_val
+                elif p_type == 'diesel':
+                    places_dict[place_id_int]['diesel_price'] = price_val
+                    
+        # Extract the aggregated rows from the dictionary
+        records = list(places_dict.values())
+        
     elif data_type == 'places':
-        for place in root.findall('place'):
+        for place in root.findall('.//place'):
             place_id = place.get('place_id')
+            if not place_id:
+                continue
+                
             name = place.findtext('name')
             cre_id = place.findtext('cre_id')
             location = place.find('location')
             lon = location.findtext('x') if location is not None else None
             lat = location.findtext('y') if location is not None else None
-            # Places and prices are stored separately so each raw feed preserves the
-            # exact structure published by the source system.
+            
             records.append({
-                'place_id': place_id,
+                'place_id': int(place_id),
                 'station_name': name,
                 'cre_permit': cre_id,
-                'longitude': lon,
-                'latitude': lat,
-                'business_date': business_date
+                'longitude': float(lon) if lon else None,
+                'latitude': float(lat) if lat else None,
+                'business_date': business_date,
+                'date_processing': date_processing
             })
 
     # Load to BigQuery
@@ -81,9 +110,12 @@ def parse_and_load_bq(xml_content: bytes, data_type: str, business_date: str) ->
         autodetect=True
     )
     
-    job = bq_client.load_table_from_json(records, table_id, job_config=job_config)
-    job.result()  # Wait for the job to complete
-    logging.info(f"Successfully appended {job.output_rows} rows to {table_id}")
+    if records:
+        job = bq_client.load_table_from_json(records, table_id, job_config=job_config)
+        job.result()  # Wait for the job to complete
+        logging.info(f"Successfully appended {job.output_rows} rows to {table_id}")
+    else:
+        logging.warning(f"No records parsed to load for {data_type}.")
 
 def fetch_upload_and_parse(
     url: str,
@@ -117,8 +149,7 @@ def ingest_cne_data(request):
     
     year, month = business_date.split('-')[0], business_date.split('-')[1]
     
-    # Keep the raw archive partitioned by source, year, and month so historical
-    # reprocessing and manual audits are easy later.
+    # Keep the raw archive partitioned by source, year, and month
     prices_path = f"raw/prices/year={year}/month={month}/prices_{business_date}.xml"
     places_path = f"raw/places/year={year}/month={month}/places_{business_date}.xml"
     
@@ -126,4 +157,5 @@ def ingest_cne_data(request):
     fetch_upload_and_parse(PLACES_URL, places_path, bucket, 'places', business_date)
     
     return "Ingestion and BigQuery Load complete.", 200
+
 # Trigger CI/CD pipeline
