@@ -30,6 +30,6 @@ jobs:
             --source=. \
             --entry-point=ingest_cne_data \
             --trigger-http \
-            --set-env-vars=BUCKET_NAME=cne-historical-data-lake,PROJECT_ID=cne-pipeline-mx-2026 \
+            --set-env-vars=BUCKET_NAME=cne-datalake-raw-mx-2026,PROJECT_ID=cne-pipeline-mx-2026 \
             --memory=512MiB \
             --no-allow-unauthenticated
